@@ -493,7 +493,8 @@ def rpc_request(proc, request_id, method, params=None, timeout=8):
   while time.time() < deadline:
     ready, _, _ = select.select([proc.stdout], [], [], 0.25)
     if not ready:
-      if proc.poll() is not None:
+      # A reply written just before exiting is already in the pipe; read it first.
+      if proc.poll() is not None and not select.select([proc.stdout], [], [], 0)[0]:
         raise RuntimeError(f"Codex app-server exited before {method}")
       continue
     line = proc.stdout.readline()
