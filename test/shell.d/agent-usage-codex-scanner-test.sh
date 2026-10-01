@@ -26,6 +26,7 @@ while read -r request; do
       jq -cn --argjson id "$id" '{id: $id, result: {}}'
       ;;
     account/read)
+      [[ -z ${CODEX_ACCOUNT_READ_EXITS:-} ]] || exit 0
       # Codex 0.158 can leave this one unanswered for good.
       [[ -n ${CODEX_ACCOUNT_READ_HANGS:-} ]] ||
         jq -cn --argjson id "$id" '{id: $id, result: {account: {}}}'
@@ -656,6 +657,13 @@ result=$(HOME="$TEST_HOME" CODEX_HOME="$TEST_HOME/.codex" XDG_DATA_HOME="$TEST_H
 [[ $(jq -c '{tierLabel, usageStatusText, limits: [.limits[] | {label, percent}]}' <<<"$result") == '{"tierLabel":"pro","usageStatusText":"","limits":[{"label":"Weekly (7-day)","percent":0.36}]}' ]] ||
   fail "Codex collector reads limits even when account/read never answers" "$result"
 pass "Codex collector reads limits even when account/read never answers"
+
+result=$(HOME="$TEST_HOME" CODEX_HOME="$TEST_HOME/.codex" XDG_DATA_HOME="$TEST_HOME/.local/share" PATH="$TEST_HOME/bin:$PATH" \
+  CODEX_ACCOUNT_READ_EXITS=1 CODEX_RATE_LIMITS='{"primary":{"usedPercent":36,"windowDurationMins":10080}}' \
+  "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
+[[ $(jq -c '{usageStatusText, limits: [.limits[] | {label, percent}]}' <<<"$result") == '{"usageStatusText":"","limits":[{"label":"Weekly (7-day)","percent":0.36}]}' ]] ||
+  fail "Codex collector keeps the limits when the app-server exits during account/read" "$result"
+pass "Codex collector keeps the limits when the app-server exits during account/read"
 
 # Free full resets ride along with the limits: only available ones count, and
 # the soonest to lapse is the one worth mentioning.

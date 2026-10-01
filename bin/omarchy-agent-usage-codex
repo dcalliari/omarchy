@@ -596,7 +596,7 @@ def fetch_codex_rpc(home=None):
         account_msg = rpc_request(proc, 3, "account/read", timeout=2)
         account = (account_msg.get("result") or {}).get("account") or {}
         plan = account.get("planType") or account.get("type") or ""
-      except TimeoutError:
+      except (TimeoutError, RuntimeError):
         pass
     result["tierLabel"] = str(plan) if plan else ""
 
